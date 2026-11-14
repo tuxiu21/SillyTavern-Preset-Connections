@@ -4,8 +4,9 @@
   "requires": [],
   "optional": [],
   "js": "index.js",
+  "css": "style.css",
   "author": "tuxiu21",
   "homePage": "https://github.com/tuxiu21/SillyTavern-Preset-Connections",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "hooks": { "activate": "init" }
 }

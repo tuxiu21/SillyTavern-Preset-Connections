@@ -75,7 +75,7 @@ export function init() {
     if (!preset) return;
     initialized = true;
     const row = document.createElement('div');
-    row.className = 'flex-container flexFlowRow';
+    row.className = 'preset-connections';
     const label = document.createElement('label');
     label.textContent = '对应连接配置';
     label.htmlFor = 'preset_connection_binding';
@@ -87,7 +87,7 @@ export function init() {
     save.className = 'menu_button';
     save.textContent = '保存对应关系';
     const authLabel = document.createElement('label');
-    authLabel.textContent = 'Vertex AI 认证方式';
+    authLabel.textContent = '认证方式';
     authLabel.htmlFor = 'preset_connection_vertex_auth';
     const auth = document.createElement('select');
     auth.id = authLabel.htmlFor;
