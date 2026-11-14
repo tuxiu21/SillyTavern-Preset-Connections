@@ -6,6 +6,6 @@
   "js": "index.js",
   "author": "tuxiu21",
   "homePage": "https://github.com/tuxiu21/SillyTavern-Preset-Connections",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "hooks": { "activate": "init" }
 }

@@ -37,6 +37,8 @@ async function harness() {
     };
     const calls = [];
     const errors = [];
+    const live = { chat_completion_source: 'vertexai', vertexai_auth_mode: 'express', vertexai_region: 'default' };
+    const authAtSecretSelection = [];
     let application = Promise.resolve();
     let beforeProfile = async () => {};
     const select = (name, trusted) => {
@@ -49,8 +51,10 @@ async function harness() {
             calls.push(name);
             await beforeProfile(name);
             const profile = profiles.find(p => p.name === name);
+            live.vertexai_auth_mode = 'express'; // Loaded preset overwrites auth.
             select(profile.preset, false);
             await eventSource.emit(eventTypes.OAI_PRESET_CHANGED_AFTER);
+            authAtSecretSelection.push(live.vertexai_auth_mode);
             return name;
         } },
     };
@@ -59,11 +63,15 @@ async function harness() {
         Option: class { constructor(text, value) { this.text = text; this.value = value; } },
         toastr: { warning: message => errors.push(message), error: message => errors.push(message), success() {} },
         structuredClone, setTimeout, console: { error() {} },
+        $: selector => ({ val(value) {
+            live[selector === '#vertexai_auth_mode' ? 'vertexai_auth_mode' : 'vertexai_region'] = value;
+            return { trigger() {} };
+        } }),
     });
     const modules = {
         '/script.js': { eventSource, event_types: eventTypes, saveSettingsDebounced() {} },
         '/scripts/extensions.js': { extension_settings: settings },
-        '/scripts/openai.js': { getPresetApplicationPromise: () => application },
+        '/scripts/openai.js': { getPresetApplicationPromise: () => application, oai_settings: live },
         '/scripts/slash-commands/SlashCommandParser.js': { SlashCommandParser: { commands } },
         './mapping.mjs': mapping,
     };
@@ -81,7 +89,9 @@ async function harness() {
     await module.evaluate();
     module.namespace.init();
     return {
-        calls, errors, profiles, settings, select,
+        calls, errors, profiles, settings, select, live, authAtSecretSelection,
+        controls: preset.parentElement.row.children,
+        commands,
         get current() { return current; },
         setApplication: promise => { application = promise; },
         beforeProfile: fn => { beforeProfile = fn; },
@@ -102,6 +112,49 @@ test('waits for preset application, then switches once without recursive loading
     h.select('A', true);
     await tick();
     assert.deepEqual(h.calls, ['Connection A', 'Connection A']);
+});
+
+test('restores JSON auth after preset loading but before native secret selection', async () => {
+    const h = await harness();
+    h.settings.presetConnections.vertexOptions = { a: { authMode: 'full', region: 'test-region' } };
+    h.select('A', true);
+    await tick();
+    assert.deepEqual(h.authAtSecretSelection, ['full']);
+    assert.equal(h.live.vertexai_auth_mode, 'full');
+    assert.equal(h.live.vertexai_region, 'test-region');
+    h.select('B', true);
+    await tick();
+    assert.equal(h.live.vertexai_auth_mode, 'express');
+    assert.deepEqual(h.authAtSecretSelection, ['full', 'express']);
+});
+
+test('saving JSON auth records only the service-account selection ID', async () => {
+    const h = await harness();
+    h.profiles[0].api = 'vertexai';
+    const [, connection, , auth, save] = h.controls;
+    connection.value = 'a';
+    auth.value = 'full';
+    h.commands['secret-id'] = { callback: async (args, value) => {
+        assert.equal(args.key, 'vertexai_service_account_json');
+        assert.equal(value, '');
+        return 'fake-json-selection-id';
+    } };
+    await save.listeners.click();
+    assert.equal(h.profiles[0]['secret-id'], 'fake-json-selection-id');
+    assert.equal(h.settings.presetConnections.vertexOptions.a.authMode, 'full');
+});
+
+test('missing JSON credential rejects the save without changing the binding', async () => {
+    const h = await harness();
+    h.profiles[0].api = 'vertexai';
+    const [, connection, , auth, save] = h.controls;
+    connection.value = 'a';
+    auth.value = 'full';
+    h.commands['secret-id'] = { callback: async () => '' };
+    await save.listeners.click();
+    assert.equal(h.settings.presetConnections.vertexOptions, undefined);
+    assert.equal(h.profiles[0]['secret-id'], undefined);
+    assert.equal(h.errors.length, 1);
 });
 
 test('programmatic and unbound selections do not switch connections', async () => {
