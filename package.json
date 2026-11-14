@@ -1,0 +1,10 @@
+{
+  "name": "sillytavern-preset-connections",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules --test *.test.mjs",
+    "check": "node --check index.js && node --check mapping.mjs"
+  }
+}
